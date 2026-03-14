@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import styles from "./page.module.css";
+import { DismissibleSyncBanner } from "./dismissible-sync-banner";
 import { RaceHistorySelector } from "./race-history-selector";
 import { getMissingEnvVars } from "@/lib/runsignup";
 import { getDashboardData } from "@/lib/analytics";
@@ -79,16 +80,14 @@ export default async function Home({ searchParams }: HomeProps) {
         ) : null}
 
         {syncCounts ? (
-          <section className={styles.success}>
-            <strong>Sync completed.</strong>
-            <span>
-              {" "}
-              Saved {syncCounts.races} races, {syncCounts.registrations} registrations,
-              updated {syncCounts.racesUpdated} races, named {syncCounts.eventsNamed} events,
-              and matched {syncCounts.resultsMatched} results ({syncCounts.nameFallbackMatches}{" "}
-              via name fallback).
-            </span>
-          </section>
+          <DismissibleSyncBanner
+            eventsNamed={syncCounts.eventsNamed}
+            nameFallbackMatches={syncCounts.nameFallbackMatches}
+            races={syncCounts.races}
+            racesUpdated={syncCounts.racesUpdated}
+            registrations={syncCounts.registrations}
+            resultsMatched={syncCounts.resultsMatched}
+          />
         ) : null}
 
         {oauthError ? (

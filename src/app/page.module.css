@@ -159,6 +159,24 @@
   padding: 20px 24px;
 }
 
+.successBanner {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px;
+  border: 1px solid rgba(63, 41, 22, 0.08);
+  border-radius: 28px;
+  color: #17361b;
+  background: rgba(231, 251, 235, 0.92);
+  box-shadow: 0 20px 60px rgba(78, 47, 16, 0.08);
+  backdrop-filter: blur(10px);
+}
+
+.successBannerBody {
+  flex: 1;
+}
+
 .alert {
   background: rgba(255, 242, 229, 0.95);
 }
@@ -166,6 +184,36 @@
 .success {
   color: #17361b;
   background: rgba(231, 251, 235, 0.92);
+}
+
+.dismissButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(23, 54, 27, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.55);
+  color: #17361b;
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    transform 120ms ease,
+    border-color 120ms ease;
+}
+
+.dismissButton:hover {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(23, 54, 27, 0.28);
+  transform: translateY(-1px);
+}
+
+.dismissButton:focus-visible {
+  outline: 2px solid rgba(23, 54, 27, 0.5);
+  outline-offset: 2px;
 }
 
 .alert pre {
