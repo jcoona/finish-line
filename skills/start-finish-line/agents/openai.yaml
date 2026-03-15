@@ -1,0 +1,4 @@
+interface:
+  display_name: "Start Finish Line"
+  short_description: "Launch the Finish Line local development app"
+  default_prompt: "Use $start-finish-line to start the Finish Line application locally."
