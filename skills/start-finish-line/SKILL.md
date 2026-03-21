@@ -20,6 +20,7 @@ Start the app from the Finish Line repository root.
 - Prefer reading `package.json` to confirm the intended startup command instead of guessing.
 - Expect the app to load environment values from `.env.local` when that file exists.
 - If `.env.local` is missing, check `.env.example` for the required variables before concluding startup is blocked.
+- If running inside a git worktree (i.e. the working directory is under `.claude/worktrees/`), warn the user that `.env.local` is gitignored and will not be present in the worktree — they will need to manually copy or symlink it from the main repo root.
 - Treat a Next.js readiness banner such as `Ready` plus the local URL as successful startup.
 - If port `3000` is already in use, inspect whether Finish Line is already running before starting a second copy.
 
