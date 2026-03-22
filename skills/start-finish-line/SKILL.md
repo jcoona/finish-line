@@ -5,7 +5,7 @@ description: Start the Finish Line Next.js application in local development. Use
 
 # Start Finish Line
 
-Start the app from the Finish Line repository root using the `preview_start` MCP tool, which reads `.claude/launch.json` to determine the startup command.
+Start the app from the Finish Line repository root. The startup command depends on which mode is needed (see below).
 
 ## Choosing the right mode
 
@@ -14,31 +14,27 @@ The project has two npm scripts:
 - `npm run dev:demo` — demo mode with `DEMO_MODE=true`, uses dummy data, no OAuth or DB required
 
 **Use `dev:demo` (demo mode) when:**
-- The user wants Claude Preview / Claude's built-in browser
-- The user mentions demo mode, dummy data, or preview
-- You are verifying UI changes in Claude's preview pane
-- No real auth or database is needed
+- The user wants to preview the UI without real auth or data (e.g. in a browser preview, demo walkthrough, or UI verification)
+- The user mentions demo mode or dummy data
 
 **Use `dev` (standard mode) when:**
-- The user wants to test in their own browser (Chrome, Safari, etc.)
+- The user wants to test in their own browser
 - The user mentions logging in, real data, or their own account
 - OAuth or actual database behavior needs to be tested
 
-## launch.json
+## How to start the server
 
-The active configuration is controlled by `.claude/launch.json`. This file is gitignored so each person can set their own preference without affecting others. The default committed state uses `dev`; a named `"finish-line (demo)"` configuration using `dev:demo` is also included as a reference.
+Run the appropriate npm script from the repository root:
 
-If the current `launch.json` uses the wrong mode for what the user wants, update it locally before calling `preview_start`:
+```
+npm run dev
+# or
+npm run dev:demo
+```
 
-- For demo/preview: set `"runtimeArgs": ["run", "dev:demo"]` in the first configuration
-- For standard dev: set `"runtimeArgs": ["run", "dev"]` in the first configuration
+**If running inside Claude Code**, you can use the `preview_start` MCP tool instead, which reads `.claude/launch.json` to determine the startup command. Check that `launch.json` is set to the correct mode before calling `preview_start` — update it locally if not (the file is gitignored).
 
-## Workflow
-
-1. Determine which mode is needed based on what the user wants (see above).
-2. Check `.claude/launch.json` and update it locally if the mode is wrong.
-3. Use `preview_start` to launch the dev server.
-4. Confirm the app is available at `http://localhost:3000`.
+Confirm the app is available at `http://localhost:3000`.
 
 ## Checks
 
