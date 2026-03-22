@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import { sql } from "@/lib/db";
 import { fetchEventResults, fetchRaceDetails } from "@/lib/runsignup";
 
 type RegistrationRow = {
@@ -17,22 +17,18 @@ type EnrichmentSummary = {
 };
 
 export async function enrichUserRaces(userId: number): Promise<EnrichmentSummary> {
-  const registrations = db
-    .prepare(
-      `
-        SELECT
-          registrations.id AS registration_row_id,
-          registrations.race_id AS race_row_id,
-          registrations.runsignup_event_id,
-          registrations.runsignup_registration_id,
-          races.runsignup_race_id
-        FROM registrations
-        INNER JOIN races ON races.id = registrations.race_id
-        WHERE registrations.user_id = ?
-        ORDER BY registrations.id ASC
-      `,
-    )
-    .all(userId) as RegistrationRow[];
+  const registrations = (await sql`
+    SELECT
+      registrations.id AS registration_row_id,
+      registrations.race_id AS race_row_id,
+      registrations.runsignup_event_id,
+      registrations.runsignup_registration_id,
+      races.runsignup_race_id
+    FROM registrations
+    INNER JOIN races ON races.id = registrations.race_id
+    WHERE registrations.user_id = ${userId}
+    ORDER BY registrations.id ASC
+  `) as RegistrationRow[];
 
   const seenRaceIds = new Set<string>();
   const raceCache = new Map<string, unknown>();
@@ -41,43 +37,6 @@ export async function enrichUserRaces(userId: number): Promise<EnrichmentSummary
   let resultsMatched = 0;
   let nameFallbackMatches = 0;
   let athleteIdentity: { firstName: string; lastName: string } | null = null;
-
-  const updateRace = db.prepare(
-    `
-      UPDATE races
-      SET name = ?, start_date = ?, url = ?, location_city = ?, location_state = ?, raw_payload = ?, synced_at = ?
-      WHERE id = ?
-    `,
-  );
-
-  const updateRegistrationEvent = db.prepare(
-    `
-      UPDATE registrations
-      SET event_name = ?, event_start_time = ?, raw_payload = ?, synced_at = ?
-      WHERE id = ?
-    `,
-  );
-
-  const upsertResult = db.prepare(
-    `
-      INSERT INTO results (
-        user_id, race_id, registration_id, event_id, result_id, result_set_id, result_set_name,
-        place, gender_place, division_place, chip_time, gun_time, pace, raw_payload, synced_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(user_id, registration_id, event_id) DO UPDATE SET
-        result_id = excluded.result_id,
-        result_set_id = excluded.result_set_id,
-        result_set_name = excluded.result_set_name,
-        place = excluded.place,
-        gender_place = excluded.gender_place,
-        division_place = excluded.division_place,
-        chip_time = excluded.chip_time,
-        gun_time = excluded.gun_time,
-        pace = excluded.pace,
-        raw_payload = excluded.raw_payload,
-        synced_at = excluded.synced_at
-    `,
-  );
 
   for (const registration of registrations) {
     let raceDetails = raceCache.get(registration.runsignup_race_id);
@@ -90,16 +49,18 @@ export async function enrichUserRaces(userId: number): Promise<EnrichmentSummary
     const raceObject = asRecord(asRecord(raceDetails)?.race);
 
     if (raceObject && !seenRaceIds.has(registration.runsignup_race_id)) {
-      updateRace.run(
-        pickString(raceObject.name) ?? `RunSignup Race ${registration.runsignup_race_id}`,
-        pickString(raceObject.next_date, raceObject.last_date),
-        pickString(raceObject.url),
-        pickString(asRecord(raceObject.address)?.city),
-        pickString(asRecord(raceObject.address)?.state),
-        JSON.stringify(raceDetails),
-        new Date().toISOString(),
-        registration.race_row_id,
-      );
+      await sql`
+        UPDATE races
+        SET
+          name           = ${pickString(raceObject.name) ?? `RunSignup Race ${registration.runsignup_race_id}`},
+          start_date     = ${pickString(raceObject.next_date, raceObject.last_date)},
+          url            = ${pickString(raceObject.url)},
+          location_city  = ${pickString(asRecord(raceObject.address)?.city)},
+          location_state = ${pickString(asRecord(raceObject.address)?.state)},
+          raw_payload    = ${sql.json(JSON.parse(JSON.stringify(raceDetails)))},
+          synced_at      = now()
+        WHERE id = ${registration.race_row_id}
+      `;
       seenRaceIds.add(registration.runsignup_race_id);
       racesUpdated += 1;
     }
@@ -107,13 +68,15 @@ export async function enrichUserRaces(userId: number): Promise<EnrichmentSummary
     const eventObject = findEvent(raceObject, registration.runsignup_event_id);
 
     if (eventObject) {
-      updateRegistrationEvent.run(
-        pickString(eventObject.name) ?? pickString(registration.runsignup_event_id),
-        pickString(eventObject.start_time),
-        JSON.stringify(eventObject),
-        new Date().toISOString(),
-        registration.registration_row_id,
-      );
+      await sql`
+        UPDATE registrations
+        SET
+          event_name       = ${pickString(eventObject.name) ?? pickString(registration.runsignup_event_id)},
+          event_start_time = ${pickString(eventObject.start_time)},
+          raw_payload      = ${sql.json(JSON.parse(JSON.stringify(eventObject)))},
+          synced_at        = now()
+        WHERE id = ${registration.registration_row_id}
+      `;
       eventsNamed += 1;
     }
 
@@ -132,23 +95,40 @@ export async function enrichUserRaces(userId: number): Promise<EnrichmentSummary
     );
 
     if (matchedResult) {
-      upsertResult.run(
-        userId,
-        registration.race_row_id,
-        parseInteger(registration.runsignup_registration_id),
-        parseInteger(registration.runsignup_event_id),
-        parseInteger(matchedResult.result.result_id),
-        parseInteger(matchedResult.resultSet.individual_result_set_id),
-        pickString(matchedResult.resultSet.individual_result_set_name),
-        pickString(matchedResult.result.place),
-        pickString(matchedResult.result.gender_place),
-        pickString(matchedResult.result.division_place),
-        pickString(matchedResult.result.chip_time, matchedResult.result.clock_time),
-        pickString(matchedResult.result.gun_time, matchedResult.result.clock_time),
-        pickString(matchedResult.result.pace),
-        JSON.stringify(matchedResult.result),
-        new Date().toISOString(),
-      );
+      await sql`
+        INSERT INTO results (
+          user_id, race_id, registration_id, event_id, result_id, result_set_id, result_set_name,
+          place, gender_place, division_place, chip_time, gun_time, pace, raw_payload, synced_at
+        ) VALUES (
+          ${userId},
+          ${registration.race_row_id},
+          ${parseInteger(registration.runsignup_registration_id)},
+          ${parseInteger(registration.runsignup_event_id)},
+          ${parseInteger(matchedResult.result.result_id)},
+          ${parseInteger(matchedResult.resultSet.individual_result_set_id)},
+          ${pickString(matchedResult.resultSet.individual_result_set_name)},
+          ${pickString(matchedResult.result.place)},
+          ${pickString(matchedResult.result.gender_place)},
+          ${pickString(matchedResult.result.division_place)},
+          ${pickString(matchedResult.result.chip_time, matchedResult.result.clock_time)},
+          ${pickString(matchedResult.result.gun_time, matchedResult.result.clock_time)},
+          ${pickString(matchedResult.result.pace)},
+          ${sql.json(JSON.parse(JSON.stringify(matchedResult.result)))},
+          now()
+        )
+        ON CONFLICT (user_id, registration_id, event_id) DO UPDATE SET
+          result_id       = EXCLUDED.result_id,
+          result_set_id   = EXCLUDED.result_set_id,
+          result_set_name = EXCLUDED.result_set_name,
+          place           = EXCLUDED.place,
+          gender_place    = EXCLUDED.gender_place,
+          division_place  = EXCLUDED.division_place,
+          chip_time       = EXCLUDED.chip_time,
+          gun_time        = EXCLUDED.gun_time,
+          pace            = EXCLUDED.pace,
+          raw_payload     = EXCLUDED.raw_payload,
+          synced_at       = EXCLUDED.synced_at
+      `;
       resultsMatched += 1;
       athleteIdentity = inferIdentityFromResult(matchedResult.result) ?? athleteIdentity;
       continue;
@@ -176,39 +156,54 @@ export async function enrichUserRaces(userId: number): Promise<EnrichmentSummary
       continue;
     }
 
-    upsertResult.run(
-      userId,
-      registration.race_row_id,
-      parseInteger(registration.runsignup_registration_id),
-      parseInteger(registration.runsignup_event_id),
-      parseInteger(fallbackMatch.result.result_id),
-      parseInteger(fallbackMatch.resultSet.individual_result_set_id),
-      pickString(fallbackMatch.resultSet.individual_result_set_name),
-      pickString(fallbackMatch.result.place),
-      pickString(fallbackMatch.result.gender_place),
-      pickString(fallbackMatch.result.division_place),
-      pickString(fallbackMatch.result.chip_time, fallbackMatch.result.clock_time),
-      pickString(fallbackMatch.result.gun_time, fallbackMatch.result.clock_time),
-      pickString(fallbackMatch.result.pace),
-      JSON.stringify(fallbackMatch.result),
-      new Date().toISOString(),
-    );
+    await sql`
+      INSERT INTO results (
+        user_id, race_id, registration_id, event_id, result_id, result_set_id, result_set_name,
+        place, gender_place, division_place, chip_time, gun_time, pace, raw_payload, synced_at
+      ) VALUES (
+        ${userId},
+        ${registration.race_row_id},
+        ${parseInteger(registration.runsignup_registration_id)},
+        ${parseInteger(registration.runsignup_event_id)},
+        ${parseInteger(fallbackMatch.result.result_id)},
+        ${parseInteger(fallbackMatch.resultSet.individual_result_set_id)},
+        ${pickString(fallbackMatch.resultSet.individual_result_set_name)},
+        ${pickString(fallbackMatch.result.place)},
+        ${pickString(fallbackMatch.result.gender_place)},
+        ${pickString(fallbackMatch.result.division_place)},
+        ${pickString(fallbackMatch.result.chip_time, fallbackMatch.result.clock_time)},
+        ${pickString(fallbackMatch.result.gun_time, fallbackMatch.result.clock_time)},
+        ${pickString(fallbackMatch.result.pace)},
+        ${sql.json(JSON.parse(JSON.stringify(fallbackMatch.result)))},
+        now()
+      )
+      ON CONFLICT (user_id, registration_id, event_id) DO UPDATE SET
+        result_id       = EXCLUDED.result_id,
+        result_set_id   = EXCLUDED.result_set_id,
+        result_set_name = EXCLUDED.result_set_name,
+        place           = EXCLUDED.place,
+        gender_place    = EXCLUDED.gender_place,
+        division_place  = EXCLUDED.division_place,
+        chip_time       = EXCLUDED.chip_time,
+        gun_time        = EXCLUDED.gun_time,
+        pace            = EXCLUDED.pace,
+        raw_payload     = EXCLUDED.raw_payload,
+        synced_at       = EXCLUDED.synced_at
+    `;
     resultsMatched += 1;
     nameFallbackMatches += 1;
   }
 
-  db.prepare(
-    `
-      INSERT INTO sync_runs (user_id, type, status, summary_json, created_at)
-      VALUES (?, ?, ?, ?, ?)
-    `,
-  ).run(
-    userId,
-    "enrich-races",
-    "success",
-    JSON.stringify({ racesUpdated, eventsNamed, resultsMatched, nameFallbackMatches }),
-    new Date().toISOString(),
-  );
+  await sql`
+    INSERT INTO sync_runs (user_id, type, status, summary_json, created_at)
+    VALUES (
+      ${userId},
+      'enrich-races',
+      'success',
+      ${sql.json({ racesUpdated, eventsNamed, resultsMatched, nameFallbackMatches })},
+      now()
+    )
+  `;
 
   return { racesUpdated, eventsNamed, resultsMatched, nameFallbackMatches };
 }

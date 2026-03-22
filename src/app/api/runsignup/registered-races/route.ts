@@ -11,7 +11,7 @@ import { SESSION_COOKIE, getSession, updateSessionTokens } from "@/lib/session";
 export async function GET() {
   const cookieStore = await cookies();
   const sessionId = cookieStore.get(SESSION_COOKIE)?.value;
-  const session = getSession(sessionId);
+  const session = await getSession(sessionId);
 
   if (!session) {
     return NextResponse.json(
@@ -27,7 +27,7 @@ export async function GET() {
         : session.tokens;
 
     if (usableTokens !== session.tokens && sessionId) {
-      updateSessionTokens(sessionId, usableTokens);
+      await updateSessionTokens(sessionId, usableTokens);
     }
 
     const payload = await fetchRegisteredRaces(usableTokens.access_token);

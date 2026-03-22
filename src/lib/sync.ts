@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import { sql } from "@/lib/db";
 
 type NormalizedRegisteredRace = {
   runsignupRaceId: string;
@@ -20,106 +20,89 @@ type SyncSummary = {
   registrationsUpserted: number;
 };
 
-export function syncRegisteredRacesToDb(
+export async function syncRegisteredRacesToDb(
   userId: number,
   payload: unknown,
-): SyncSummary {
+): Promise<SyncSummary> {
   const candidates = extractRegisteredRaceCandidates(payload);
-  const now = new Date().toISOString();
-
-  const upsertRace = db.prepare(
-    `
-      INSERT INTO races (
-        runsignup_race_id, name, start_date, url, location_city, location_state, raw_payload, synced_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(runsignup_race_id) DO UPDATE SET
-        name = excluded.name,
-        start_date = excluded.start_date,
-        url = excluded.url,
-        location_city = excluded.location_city,
-        location_state = excluded.location_state,
-        raw_payload = excluded.raw_payload,
-        synced_at = excluded.synced_at
-    `,
-  );
-
-  const selectRaceId = db.prepare(`SELECT id FROM races WHERE runsignup_race_id = ?`);
-
-  const upsertRegistration = db.prepare(
-    `
-      INSERT INTO registrations (
-        user_id, race_id, runsignup_registration_id, runsignup_event_id, event_name, status, bib, raw_payload, synced_at, event_start_time
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(user_id, race_id, runsignup_registration_id) DO UPDATE SET
-        runsignup_event_id = excluded.runsignup_event_id,
-        event_name = excluded.event_name,
-        status = excluded.status,
-        bib = excluded.bib,
-        raw_payload = excluded.raw_payload,
-        synced_at = excluded.synced_at,
-        event_start_time = excluded.event_start_time
-    `,
-  );
-
-  const insertSyncRun = db.prepare(
-    `
-      INSERT INTO sync_runs (user_id, type, status, summary_json, created_at)
-      VALUES (?, ?, ?, ?, ?)
-    `,
-  );
-
   let racesUpserted = 0;
   let registrationsUpserted = 0;
 
-  db.transaction(() => {
+  await sql.begin(async (txSql) => {
+    const sql = txSql as unknown as typeof import("@/lib/db").sql;
     for (const candidate of candidates) {
-      upsertRace.run(
-        candidate.runsignupRaceId,
-        candidate.name,
-        null,
-        candidate.url,
-        candidate.city,
-        candidate.state,
-        JSON.stringify(candidate.rawPayload),
-        now,
-      );
-      racesUpserted += 1;
+      const raceRows = await sql`
+        INSERT INTO races (
+          runsignup_race_id, name, start_date, url, location_city, location_state, raw_payload, synced_at
+        ) VALUES (
+          ${candidate.runsignupRaceId},
+          ${candidate.name},
+          ${null},
+          ${candidate.url},
+          ${candidate.city},
+          ${candidate.state},
+          ${sql.json(JSON.parse(JSON.stringify(candidate.rawPayload)))},
+          now()
+        )
+        ON CONFLICT (runsignup_race_id) DO UPDATE SET
+          name           = EXCLUDED.name,
+          start_date     = EXCLUDED.start_date,
+          url            = EXCLUDED.url,
+          location_city  = EXCLUDED.location_city,
+          location_state = EXCLUDED.location_state,
+          raw_payload    = EXCLUDED.raw_payload,
+          synced_at      = EXCLUDED.synced_at
+        RETURNING id
+      `;
 
-      const raceRow = selectRaceId.get(candidate.runsignupRaceId) as
-        | { id: number }
-        | undefined;
+      const raceId = (raceRows[0] as { id: number } | undefined)?.id;
 
-      if (!raceRow) {
+      if (raceId == null) {
         continue;
       }
 
-      upsertRegistration.run(
-        userId,
-        raceRow.id,
-        candidate.registrationId,
-        candidate.eventId,
-        candidate.eventName,
-        candidate.status,
-        candidate.bib,
-        JSON.stringify(candidate.rawPayload),
-        now,
-        null,
-      );
+      racesUpserted += 1;
+
+      await sql`
+        INSERT INTO registrations (
+          user_id, race_id, runsignup_registration_id, runsignup_event_id,
+          event_name, status, bib, raw_payload, synced_at, event_start_time
+        ) VALUES (
+          ${userId},
+          ${raceId},
+          ${candidate.registrationId},
+          ${candidate.eventId},
+          ${candidate.eventName},
+          ${candidate.status},
+          ${candidate.bib},
+          ${sql.json(JSON.parse(JSON.stringify(candidate.rawPayload)))},
+          now(),
+          ${null}
+        )
+        ON CONFLICT (user_id, race_id, runsignup_registration_id) DO UPDATE SET
+          runsignup_event_id = EXCLUDED.runsignup_event_id,
+          event_name         = EXCLUDED.event_name,
+          status             = EXCLUDED.status,
+          bib                = EXCLUDED.bib,
+          raw_payload        = EXCLUDED.raw_payload,
+          synced_at          = EXCLUDED.synced_at,
+          event_start_time   = EXCLUDED.event_start_time
+      `;
+
       registrationsUpserted += 1;
     }
 
-    insertSyncRun.run(
-      userId,
-      "registered-races",
-      "success",
-      JSON.stringify({
-        candidatesFound: candidates.length,
-        racesUpserted,
-        registrationsUpserted,
-      }),
-      now,
-    );
-  })();
+    await sql`
+      INSERT INTO sync_runs (user_id, type, status, summary_json, created_at)
+      VALUES (
+        ${userId},
+        'registered-races',
+        'success',
+        ${sql.json({ candidatesFound: candidates.length, racesUpserted, registrationsUpserted })},
+        now()
+      )
+    `;
+  });
 
   return {
     candidatesFound: candidates.length,
@@ -128,40 +111,38 @@ export function syncRegisteredRacesToDb(
   };
 }
 
-export function getSyncedRaces(userId: number) {
-  return db
-    .prepare(
-      `
-        SELECT
-          races.id,
-          races.runsignup_race_id,
-          races.name,
-          races.start_date,
-          races.url,
-          races.location_city,
-          races.location_state,
-          races.synced_at,
-          registrations.runsignup_registration_id,
-          registrations.runsignup_event_id,
-          registrations.event_name,
-          registrations.event_start_time,
-          registrations.status,
-          registrations.bib,
-          results.chip_time,
-          results.pace,
-          results.place,
-          results.result_set_name
-        FROM registrations
-        INNER JOIN races ON races.id = registrations.race_id
-        LEFT JOIN results
-          ON results.user_id = registrations.user_id
-         AND results.registration_id = CAST(registrations.runsignup_registration_id AS INTEGER)
-         AND results.event_id = CAST(registrations.runsignup_event_id AS INTEGER)
-        WHERE registrations.user_id = ?
-        ORDER BY COALESCE(registrations.event_start_time, races.start_date, '') DESC, races.name ASC
-      `,
-    )
-    .all(userId) as Array<{
+export async function getSyncedRaces(userId: number) {
+  const rows = await sql`
+    SELECT
+      races.id,
+      races.runsignup_race_id,
+      races.name,
+      races.start_date,
+      races.url,
+      races.location_city,
+      races.location_state,
+      races.synced_at,
+      registrations.runsignup_registration_id,
+      registrations.runsignup_event_id,
+      registrations.event_name,
+      registrations.event_start_time,
+      registrations.status,
+      registrations.bib,
+      results.chip_time,
+      results.pace,
+      results.place,
+      results.result_set_name
+    FROM registrations
+    INNER JOIN races ON races.id = registrations.race_id
+    LEFT JOIN results
+      ON results.user_id = registrations.user_id
+     AND results.registration_id = NULLIF(registrations.runsignup_registration_id, '')::BIGINT
+     AND results.event_id = NULLIF(registrations.runsignup_event_id, '')::BIGINT
+    WHERE registrations.user_id = ${userId}
+    ORDER BY COALESCE(registrations.event_start_time, races.start_date, '') DESC, races.name ASC
+  `;
+
+  return rows as unknown as Array<{
     id: number;
     runsignup_race_id: string;
     name: string;
@@ -183,18 +164,16 @@ export function getSyncedRaces(userId: number) {
   }>;
 }
 
-export function getLatestSyncRun(userId: number) {
-  const row = db
-    .prepare(
-      `
-        SELECT created_at, summary_json
-        FROM sync_runs
-        WHERE user_id = ? AND type = 'registered-races'
-        ORDER BY id DESC
-        LIMIT 1
-      `,
-    )
-    .get(userId) as { created_at: string; summary_json: string | null } | undefined;
+export async function getLatestSyncRun(userId: number) {
+  const rows = await sql`
+    SELECT created_at, summary_json
+    FROM sync_runs
+    WHERE user_id = ${userId} AND type = 'registered-races'
+    ORDER BY id DESC
+    LIMIT 1
+  `;
+
+  const row = rows[0] as { created_at: string; summary_json: unknown } | undefined;
 
   if (!row) {
     return null;
@@ -202,7 +181,7 @@ export function getLatestSyncRun(userId: number) {
 
   return {
     createdAt: row.created_at,
-    summary: row.summary_json ? JSON.parse(row.summary_json) : null,
+    summary: row.summary_json ?? null,
   };
 }
 
