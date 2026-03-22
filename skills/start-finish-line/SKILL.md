@@ -5,15 +5,36 @@ description: Start the Finish Line Next.js application in local development. Use
 
 # Start Finish Line
 
-Start the app from the Finish Line repository root.
+Start the app from the Finish Line repository root. The startup command depends on which mode is needed (see below).
 
-## Workflow
+## Choosing the right mode
 
-1. Confirm you are in the Finish Line repository root by checking for `package.json` and `README.md`.
-2. Assume local dependencies are already installed unless the command fails with a missing-package error.
-3. Start the development server with `npm run dev` from the repository root.
-4. Keep the process alive in a persistent terminal session and poll once for readiness.
-5. Confirm the app is available at `http://localhost:3000`.
+The project has two npm scripts:
+- `npm run dev` — standard dev mode, requires real OAuth and database setup
+- `npm run dev:demo` — demo mode with `DEMO_MODE=true`, uses dummy data, no OAuth or DB required
+
+**Use `dev:demo` (demo mode) when:**
+- The user wants to preview the UI without real auth or data (e.g. in a browser preview, demo walkthrough, or UI verification)
+- The user mentions demo mode or dummy data
+
+**Use `dev` (standard mode) when:**
+- The user wants to test in their own browser
+- The user mentions logging in, real data, or their own account
+- OAuth or actual database behavior needs to be tested
+
+## How to start the server
+
+Run the appropriate npm script from the repository root:
+
+```
+npm run dev
+# or
+npm run dev:demo
+```
+
+**If running inside Claude Code**, you can use the `preview_start` MCP tool instead, which reads `.claude/launch.json` to determine the startup command. Check that `launch.json` is set to the correct mode before calling `preview_start` — update it locally if not (the file is gitignored).
+
+Confirm the app is available at `http://localhost:3000`.
 
 ## Checks
 
