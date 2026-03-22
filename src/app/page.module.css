@@ -93,8 +93,11 @@
 
 .actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 12px;
+  flex-shrink: 0;
+  min-width: 220px;
+  align-items: flex-end;
 }
 
 .primary,

@@ -42,6 +42,13 @@ export default async function SettingsPage() {
               <a className={styles.primary} href="/api/auth/runsignup/start">
                 Connect RunSignup
               </a>
+              {session && (
+                <form action="/api/auth/logout" method="post">
+                  <button className={styles.secondary} type="submit">
+                    Disconnect and clear data
+                  </button>
+                </form>
+              )}
             </div>
           </div>
           <dl className={styles.meta}>
