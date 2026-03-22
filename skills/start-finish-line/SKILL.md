@@ -14,7 +14,7 @@ The project has two npm scripts:
 - `npm run dev:demo` — demo mode with `DEMO_MODE=true`, uses dummy data, no OAuth or DB required
 
 **Use `dev:demo` (demo mode) when:**
-- The user wants to preview the UI without real auth or data (e.g. in a browser preview, demo walkthrough, or UI verification)
+- Doing UI verification, a browser preview, or a demo walkthrough
 - The user mentions demo mode or dummy data
 
 **Use `dev` (standard mode) when:**
