@@ -37,6 +37,9 @@ yarn-error.log*
 /data/*
 !/data/.gitkeep
 
+# claude
+.claude/worktrees/
+
 # vercel
 .vercel
 
