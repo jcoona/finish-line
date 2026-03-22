@@ -1,0 +1,4 @@
+interface:
+  display_name: "RunSignup API"
+  short_description: "Reference the RunSignup API spec for OAuth2 and endpoints"
+  default_prompt: "Use $runsignup-api to look up RunSignup API methods or OAuth2 details."
