@@ -9,6 +9,8 @@ It connects to a runner's RunSignup account with OAuth, syncs registered races a
 - upcoming races
 - race-by-race history for repeat events
 
+![Finish Line dashboard showing PRs, upcoming races, and recent finishes](docs/screenshot.png)
+
 ## How It Works
 
 Finish Line uses RunSignup OAuth to access the logged-in user's account data. After connecting, the app:
