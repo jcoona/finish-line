@@ -160,8 +160,8 @@ Finish Line stores all app state in a PostgreSQL database configured via `DATABA
 
 The full schema is in `sql/schema.sql`.
 
-## Built With Codex
+## Built With Codex and Claude
 
-Finish Line was built collaboratively with OpenAI Codex using a vibe-coding workflow.
+Finish Line was built collaboratively with OpenAI Codex and Anthropic Claude using a vibe-coding workflow.
 
 The app was shaped through iterative prompting, live OAuth validation, local testing, and UI refinement directly in the project workspace.
