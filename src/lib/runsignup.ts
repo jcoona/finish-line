@@ -147,6 +147,38 @@ export async function refreshAccessToken(
   return normalizeTokenPayload(payload);
 }
 
+export async function fetchCurrentUser(accessToken: string): Promise<{
+  user_id: number;
+  first_name: string;
+  last_name: string;
+}> {
+  const response = await fetch("https://api.runsignup.com/rest/user?format=json", {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: "application/json",
+    },
+    cache: "no-store",
+  });
+
+  const text = await response.text();
+  const payload = parseJsonSafely(text) as { user?: { user_id?: number; first_name?: string; last_name?: string } };
+
+  if (!response.ok) {
+    throw new Error(`Fetch current user failed (${response.status}): ${stringifyPayload(payload, text)}`);
+  }
+
+  const user = payload?.user;
+  if (!user?.user_id || !user?.first_name || !user?.last_name) {
+    throw new Error(`Unexpected user payload shape: ${stringifyPayload(payload, text)}`);
+  }
+
+  return {
+    user_id: user.user_id,
+    first_name: user.first_name,
+    last_name: user.last_name,
+  };
+}
+
 export async function fetchRegisteredRaces(accessToken: string) {
   const response = await fetch(RUNSIGNUP_REGISTERED_RACES_URL, {
     headers: {
