@@ -92,6 +92,14 @@ db.exec(`
 
 ensureColumn("registrations", "event_start_time", "TEXT");
 
+export function getUser(userId: number): { display_name: string } | null {
+  return (
+    (db
+      .prepare(`SELECT display_name FROM users WHERE id = ?`)
+      .get(userId) as { display_name: string } | undefined) ?? null
+  );
+}
+
 export function upsertUser(providerUserId: string, displayName: string): number {
   const now = new Date().toISOString();
   const existing = db
