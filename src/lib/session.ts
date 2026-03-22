@@ -5,7 +5,6 @@ import { db } from "@/lib/db";
 import type { RunSignupTokens } from "@/lib/runsignup";
 
 export const SESSION_COOKIE = "finish_line_session_id";
-export const DEFAULT_USER_ID = 1;
 
 type StoredSessionRow = {
   id: string;
@@ -15,7 +14,7 @@ type StoredSessionRow = {
   updated_at: string;
 };
 
-export function createSession(tokens: RunSignupTokens, userId = DEFAULT_USER_ID) {
+export function createSession(tokens: RunSignupTokens, userId: number) {
   const id = randomUUID();
   const timestamp = new Date().toISOString();
 

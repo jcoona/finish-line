@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
 
 import styles from "./page.module.css";
@@ -5,6 +6,8 @@ import { DismissibleSyncBanner } from "./dismissible-sync-banner";
 import { RaceHistorySelector } from "./race-history-selector";
 import { getMissingEnvVars } from "@/lib/runsignup";
 import { getDashboardData } from "@/lib/analytics";
+import { SESSION_COOKIE, getSession } from "@/lib/session";
+import { getUser } from "@/lib/db";
 
 type HomeProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -16,6 +19,9 @@ function formatMaybeJson(value: unknown) {
 
 export default async function Home({ searchParams }: HomeProps) {
   const params = await searchParams;
+  const cookieStore = await cookies();
+  const session = getSession(cookieStore.get(SESSION_COOKIE)?.value);
+  const user = session ? getUser(session.userId) : null;
   const missingEnvVars = getMissingEnvVars();
   const connected = params.connected === "1";
   const synced = params.synced === "1";
@@ -42,14 +48,14 @@ export default async function Home({ searchParams }: HomeProps) {
         }
       : null;
 
-  const dashboard = getDashboardData(1, selectedRaceId);
+  const dashboard = getDashboardData(session?.userId ?? 0, selectedRaceId);
 
   return (
     <div className={styles.page}>
       <main className={styles.main}>
         <section className={styles.hero}>
           <p className={styles.kicker}>Finish Line</p>
-          <h1>Your race history, organized in one place</h1>
+          <h1>{user ? `${user.display_name.split(" ")[0]}'s Race History` : "Your Race History, Organized In One Place"}</h1>
           <p className={styles.lede}>
             PRs, recent finishes, upcoming races, and your history at favorite events,
             all pulled together from RunSignup.

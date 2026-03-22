@@ -5,8 +5,10 @@ import {
   OAUTH_STATE_COOKIE,
   OAUTH_VERIFIER_COOKIE,
   exchangeCodeForTokens,
+  fetchCurrentUser,
 } from "@/lib/runsignup";
 import { SESSION_COOKIE, createSession } from "@/lib/session";
+import { upsertUser } from "@/lib/db";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -31,7 +33,12 @@ export async function GET(request: Request) {
 
   try {
     const tokens = await exchangeCodeForTokens({ code, codeVerifier });
-    const sessionId = createSession(tokens);
+    const runsignupUser = await fetchCurrentUser(tokens.access_token);
+    const userId = upsertUser(
+      String(runsignupUser.user_id),
+      `${runsignupUser.first_name} ${runsignupUser.last_name}`,
+    );
+    const sessionId = createSession(tokens, userId);
     const response = NextResponse.redirect(new URL("/?connected=1", request.url));
 
     response.cookies.set(SESSION_COOKIE, sessionId, {

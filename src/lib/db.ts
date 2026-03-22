@@ -92,14 +92,38 @@ db.exec(`
 
 ensureColumn("registrations", "event_start_time", "TEXT");
 
-const now = new Date().toISOString();
-db.prepare(
-  `
-    INSERT INTO users (id, provider, provider_user_id, display_name, created_at, updated_at)
-    VALUES (1, 'runsignup', NULL, 'Connor', ?, ?)
-    ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at
-  `,
-).run(now, now);
+export function getUser(userId: number): { display_name: string } | null {
+  return (
+    (db
+      .prepare(`SELECT display_name FROM users WHERE id = ?`)
+      .get(userId) as { display_name: string } | undefined) ?? null
+  );
+}
+
+export function upsertUser(providerUserId: string, displayName: string): number {
+  const now = new Date().toISOString();
+  const existing = db
+    .prepare(`SELECT id FROM users WHERE provider = 'runsignup' AND provider_user_id = ?`)
+    .get(providerUserId) as { id: number } | undefined;
+
+  if (existing) {
+    db.prepare(`UPDATE users SET display_name = ?, updated_at = ? WHERE id = ?`).run(
+      displayName,
+      now,
+      existing.id,
+    );
+    return existing.id;
+  }
+
+  const result = db
+    .prepare(
+      `INSERT INTO users (provider, provider_user_id, display_name, created_at, updated_at)
+       VALUES ('runsignup', ?, ?, ?, ?)`,
+    )
+    .run(providerUserId, displayName, now, now);
+
+  return result.lastInsertRowid as number;
+}
 
 function ensureColumn(tableName: string, columnName: string, columnDefinition: string) {
   const columns = db
