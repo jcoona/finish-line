@@ -8,6 +8,9 @@ import { getMissingEnvVars } from "@/lib/runsignup";
 import { getDashboardData } from "@/lib/analytics";
 import { SESSION_COOKIE, getSession } from "@/lib/session";
 import { getUser } from "@/lib/db";
+import { DEMO_DASHBOARD_DATA, DEMO_USER_NAME } from "@/lib/demo-data";
+
+const IS_DEMO = process.env.DEMO_MODE === "true";
 
 type HomeProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -19,6 +22,159 @@ function formatMaybeJson(value: unknown) {
 
 export default async function Home({ searchParams }: HomeProps) {
   const params = await searchParams;
+
+  if (IS_DEMO) {
+    const dashboard = DEMO_DASHBOARD_DATA;
+    return (
+      <div className={styles.page}>
+        <main className={styles.main}>
+          <section className={styles.hero}>
+            <p className={styles.kicker}>Finish Line</p>
+            <h1>{DEMO_USER_NAME}&apos;s Race History</h1>
+            <p className={styles.lede}>
+              PRs, recent finishes, upcoming races, and your history at favorite events,
+              all pulled together from RunSignup.
+            </p>
+            <div className={styles.heroActions}>
+              <Link className={styles.secondary} href="/settings">
+                Manage connection and sync
+              </Link>
+            </div>
+          </section>
+
+          <section className={styles.panel}>
+            <div className={styles.panelHeader}>
+              <div>
+                <h2>PRs</h2>
+                <p>Your best efforts by distance bucket so far.</p>
+              </div>
+            </div>
+            <div className={styles.summaryList}>
+              {dashboard.prs.map((pr) => (
+                <article className={styles.summaryItem} key={pr.distanceBucket}>
+                  <strong>{pr.distanceBucket}</strong>
+                  <span>{pr.time}</span>
+                  <small>
+                    {pr.eventName ?? pr.raceName}
+                    {pr.eventStartTime ? ` • ${new Date(pr.eventStartTime).toLocaleDateString()}` : ""}
+                  </small>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <div className={styles.dashboardColumns}>
+            <section className={styles.panel}>
+              <div className={styles.panelHeader}>
+                <div>
+                  <h2>Upcoming races</h2>
+                  <p>Your next scheduled starts, with the closest one highlighted first.</p>
+                </div>
+              </div>
+              <article className={styles.highlightCard}>
+                <p className={styles.highlightLabel}>Up next</p>
+                <h3>{dashboard.nextUpcomingRace.event_name ?? dashboard.nextUpcomingRace.race_name}</h3>
+                <span>
+                  {dashboard.nextUpcomingRace.event_start_time
+                    ? new Date(dashboard.nextUpcomingRace.event_start_time).toLocaleString([], {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      })
+                    : "Date pending"}
+                </span>
+                <small>
+                  {[dashboard.nextUpcomingRace.location_city, dashboard.nextUpcomingRace.location_state]
+                    .filter(Boolean)
+                    .join(", ")}
+                </small>
+              </article>
+              {dashboard.upcomingRaces.length > 1 ? (
+                <div className={styles.summaryList}>
+                  {dashboard.upcomingRaces.slice(1).map((race) => (
+                    <article
+                      className={styles.summaryItem}
+                      key={`${race.runsignup_race_id}-${race.event_start_time ?? race.event_name}`}
+                    >
+                      <strong>{race.event_name ?? race.race_name}</strong>
+                      <small>
+                        {race.event_start_time
+                          ? new Date(race.event_start_time).toLocaleDateString()
+                          : "Date pending"}
+                      </small>
+                      <small>
+                        {[race.location_city, race.location_state].filter(Boolean).join(", ")}
+                      </small>
+                    </article>
+                  ))}
+                </div>
+              ) : null}
+            </section>
+
+            <section className={styles.panel}>
+              <div className={styles.panelHeader}>
+                <div>
+                  <h2>Recent finishes</h2>
+                  <p>Showing races from this year and last year.</p>
+                </div>
+              </div>
+              <div className={styles.summaryList}>
+                {dashboard.recentResults.map((result) => (
+                  <article
+                    className={styles.summaryItem}
+                    key={`${result.runsignup_race_id}-${result.event_start_time ?? result.chip_time}`}
+                  >
+                    <strong>{result.event_name ?? result.race_name}</strong>
+                    <span>{result.chip_time ?? result.gun_time}</span>
+                    <small>
+                      {result.event_start_time
+                        ? new Date(result.event_start_time).toLocaleDateString()
+                        : "Date pending"}
+                      {result.place ? ` • Place ${result.place}` : ""}
+                      {result.pace ? ` • Pace ${result.pace}` : ""}
+                    </small>
+                  </article>
+                ))}
+              </div>
+            </section>
+          </div>
+
+          <section className={styles.panel} id="race-history">
+            <div className={styles.panelHeader}>
+              <div>
+                <h2>Race history</h2>
+                <p>Select a race to see your matched results in chronological order.</p>
+              </div>
+            </div>
+            <RaceHistorySelector
+              key={dashboard.selectedRaceId ?? "race-history"}
+              options={dashboard.raceOptions}
+              sectionId="race-history"
+              selectedRaceId={dashboard.selectedRaceId ?? undefined}
+            />
+            <div className={styles.summaryList}>
+              {dashboard.selectedRaceHistory.map((result) => (
+                <article
+                  className={styles.summaryItem}
+                  key={`${result.runsignup_race_id}-${result.event_start_time ?? result.chip_time}`}
+                >
+                  <strong>{result.event_name ?? dashboard.selectedRaceLabel ?? result.race_name}</strong>
+                  <span>{result.chip_time ?? result.gun_time}</span>
+                  <small>
+                    {result.event_start_time
+                      ? new Date(result.event_start_time).toLocaleDateString()
+                      : "Date pending"}
+                    {result.place ? ` • Place ${result.place}` : ""}
+                    {result.pace ? ` • Pace ${result.pace}` : ""}
+                  </small>
+                </article>
+              ))}
+            </div>
+          </section>
+        </main>
+      </div>
+    );
+  }
+
   const cookieStore = await cookies();
   const session = getSession(cookieStore.get(SESSION_COOKIE)?.value);
   const user = session ? getUser(session.userId) : null;
