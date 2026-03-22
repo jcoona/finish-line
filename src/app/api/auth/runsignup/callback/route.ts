@@ -6,9 +6,12 @@ import {
   OAUTH_VERIFIER_COOKIE,
   exchangeCodeForTokens,
   fetchCurrentUser,
+  fetchRegisteredRaces,
 } from "@/lib/runsignup";
+import { enrichUserRaces } from "@/lib/enrichment";
 import { SESSION_COOKIE, createSession } from "@/lib/session";
 import { upsertUser } from "@/lib/db";
+import { syncRegisteredRacesToDb } from "@/lib/sync";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -39,7 +42,21 @@ export async function GET(request: Request) {
       `${runsignupUser.first_name} ${runsignupUser.last_name}`,
     );
     const sessionId = createSession(tokens, userId);
-    const response = NextResponse.redirect(new URL("/?connected=1", request.url));
+
+    const payload = await fetchRegisteredRaces(tokens.access_token);
+    const syncSummary = syncRegisteredRacesToDb(userId, payload);
+    const enrichmentSummary = await enrichUserRaces(userId);
+    const params = new URLSearchParams({
+      synced: "1",
+      races: String(syncSummary.racesUpserted),
+      registrations: String(syncSummary.registrationsUpserted),
+      racesUpdated: String(enrichmentSummary.racesUpdated),
+      eventsNamed: String(enrichmentSummary.eventsNamed),
+      resultsMatched: String(enrichmentSummary.resultsMatched),
+      nameFallbackMatches: String(enrichmentSummary.nameFallbackMatches),
+    });
+
+    const response = NextResponse.redirect(new URL(`/?${params.toString()}`, request.url));
 
     response.cookies.set(SESSION_COOKIE, sessionId, {
       httpOnly: true,

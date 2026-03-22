@@ -85,16 +85,7 @@ export default async function Home({ searchParams }: HomeProps) {
           </section>
         ) : null}
 
-        {syncCounts ? (
-          <DismissibleSyncBanner
-            eventsNamed={syncCounts.eventsNamed}
-            nameFallbackMatches={syncCounts.nameFallbackMatches}
-            races={syncCounts.races}
-            racesUpdated={syncCounts.racesUpdated}
-            registrations={syncCounts.registrations}
-            resultsMatched={syncCounts.resultsMatched}
-          />
-        ) : null}
+        {syncCounts ? <DismissibleSyncBanner /> : null}
 
         {oauthError ? (
           <section className={styles.alert}>
