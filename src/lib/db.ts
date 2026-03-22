@@ -125,6 +125,22 @@ export function upsertUser(providerUserId: string, displayName: string): number 
   return result.lastInsertRowid as number;
 }
 
+export function deleteUserData(userId: number) {
+  const raceIds = (
+    db.prepare(`SELECT DISTINCT race_id FROM registrations WHERE user_id = ?`).all(userId) as { race_id: number }[]
+  ).map((r) => r.race_id);
+
+  db.prepare(`DELETE FROM results WHERE user_id = ?`).run(userId);
+  db.prepare(`DELETE FROM registrations WHERE user_id = ?`).run(userId);
+  db.prepare(`DELETE FROM sync_runs WHERE user_id = ?`).run(userId);
+  db.prepare(`DELETE FROM oauth_sessions WHERE user_id = ?`).run(userId);
+  db.prepare(`DELETE FROM users WHERE id = ?`).run(userId);
+
+  if (raceIds.length > 0) {
+    db.prepare(`DELETE FROM races WHERE id IN (${raceIds.map(() => "?").join(",")})`).run(...raceIds);
+  }
+}
+
 function ensureColumn(tableName: string, columnName: string, columnDefinition: string) {
   const columns = db
     .prepare(`PRAGMA table_info(${tableName})`)
