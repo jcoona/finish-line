@@ -176,8 +176,8 @@ export default async function Home({ searchParams }: HomeProps) {
   }
 
   const cookieStore = await cookies();
-  const session = getSession(cookieStore.get(SESSION_COOKIE)?.value);
-  const user = session ? getUser(session.userId) : null;
+  const session = await getSession(cookieStore.get(SESSION_COOKIE)?.value);
+  const user = session ? await getUser(session.userId) : null;
   const missingEnvVars = getMissingEnvVars();
   const connected = params.connected === "1";
   const synced = params.synced === "1";
@@ -204,7 +204,7 @@ export default async function Home({ searchParams }: HomeProps) {
         }
       : null;
 
-  const dashboard = getDashboardData(session?.userId ?? 0, selectedRaceId);
+  const dashboard = await getDashboardData(session?.userId ?? 0, selectedRaceId);
 
   return (
     <div className={styles.page}>

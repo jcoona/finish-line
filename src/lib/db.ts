@@ -1,154 +1,63 @@
-import Database from "better-sqlite3";
-import fs from "node:fs";
-import path from "node:path";
+import postgres from "postgres";
 
-const defaultDbPath = path.join(process.cwd(), "data", "finish-line.db");
-const dbPath = process.env.FINISH_LINE_DB_PATH?.trim() || defaultDbPath;
+type SqlClient = ReturnType<typeof postgres>;
 
-fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+// Lazily initialized — the connection is created on first use, not at module load.
+// This allows Next.js to build without DATABASE_URL (e.g. in demo mode or CI type-checks).
+const globalForPg = globalThis as unknown as { _sql: SqlClient | undefined };
 
-export const db = new Database(dbPath);
-db.pragma("journal_mode = WAL");
+function getSql(): SqlClient {
+  if (globalForPg._sql) {
+    return globalForPg._sql;
+  }
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    provider TEXT NOT NULL,
-    provider_user_id TEXT,
-    display_name TEXT,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-  );
+  const connectionString = process.env.DATABASE_URL;
 
-  CREATE TABLE IF NOT EXISTS oauth_sessions (
-    id TEXT PRIMARY KEY,
-    user_id INTEGER NOT NULL,
-    encrypted_tokens TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id)
-  );
-
-  CREATE TABLE IF NOT EXISTS races (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    runsignup_race_id TEXT NOT NULL UNIQUE,
-    name TEXT NOT NULL,
-    start_date TEXT,
-    url TEXT,
-    location_city TEXT,
-    location_state TEXT,
-    raw_payload TEXT NOT NULL,
-    synced_at TEXT NOT NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS registrations (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
-    race_id INTEGER NOT NULL,
-    runsignup_registration_id TEXT,
-    runsignup_event_id TEXT,
-    event_name TEXT,
-    status TEXT,
-    bib TEXT,
-    raw_payload TEXT NOT NULL,
-    synced_at TEXT NOT NULL,
-    UNIQUE (user_id, race_id, runsignup_registration_id),
-    FOREIGN KEY (user_id) REFERENCES users(id),
-    FOREIGN KEY (race_id) REFERENCES races(id)
-  );
-
-  CREATE TABLE IF NOT EXISTS sync_runs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
-    type TEXT NOT NULL,
-    status TEXT NOT NULL,
-    summary_json TEXT,
-    created_at TEXT NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id)
-  );
-
-  CREATE TABLE IF NOT EXISTS results (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
-    race_id INTEGER NOT NULL,
-    registration_id INTEGER,
-    event_id INTEGER,
-    result_id INTEGER,
-    result_set_id INTEGER,
-    result_set_name TEXT,
-    place TEXT,
-    gender_place TEXT,
-    division_place TEXT,
-    chip_time TEXT,
-    gun_time TEXT,
-    pace TEXT,
-    raw_payload TEXT NOT NULL,
-    synced_at TEXT NOT NULL,
-    UNIQUE (user_id, registration_id, event_id),
-    FOREIGN KEY (user_id) REFERENCES users(id),
-    FOREIGN KEY (race_id) REFERENCES races(id)
-  );
-`);
-
-ensureColumn("registrations", "event_start_time", "TEXT");
-
-export function getUser(userId: number): { display_name: string } | null {
-  return (
-    (db
-      .prepare(`SELECT display_name FROM users WHERE id = ?`)
-      .get(userId) as { display_name: string } | undefined) ?? null
-  );
-}
-
-export function upsertUser(providerUserId: string, displayName: string): number {
-  const now = new Date().toISOString();
-  const existing = db
-    .prepare(`SELECT id FROM users WHERE provider = 'runsignup' AND provider_user_id = ?`)
-    .get(providerUserId) as { id: number } | undefined;
-
-  if (existing) {
-    db.prepare(`UPDATE users SET display_name = ?, updated_at = ? WHERE id = ?`).run(
-      displayName,
-      now,
-      existing.id,
+  if (!connectionString) {
+    throw new Error(
+      "DATABASE_URL environment variable is required. Add it to .env.local or your hosting environment.",
     );
-    return existing.id;
   }
 
-  const result = db
-    .prepare(
-      `INSERT INTO users (provider, provider_user_id, display_name, created_at, updated_at)
-       VALUES ('runsignup', ?, ?, ?, ?)`,
-    )
-    .run(providerUserId, displayName, now, now);
+  const client = postgres(connectionString, {
+    ssl: connectionString.includes("sslmode=require") ? { rejectUnauthorized: false } : false,
+  });
 
-  return result.lastInsertRowid as number;
+  if (process.env.NODE_ENV !== "production") {
+    globalForPg._sql = client;
+  }
+
+  return client;
 }
 
-export function deleteUserData(userId: number) {
-  const raceIds = (
-    db.prepare(`SELECT DISTINCT race_id FROM registrations WHERE user_id = ?`).all(userId) as { race_id: number }[]
-  ).map((r) => r.race_id);
+// The target must be a function so tagged template literals (sql`...`) are callable.
+export const sql = new Proxy((() => {}) as unknown as SqlClient, {
+  get(_target, prop) {
+    return (getSql() as unknown as Record<string | symbol, unknown>)[prop];
+  },
+  apply(_target, _this, args: unknown[]) {
+    return (getSql() as unknown as (...args: unknown[]) => unknown)(...args);
+  },
+}) as SqlClient;
 
-  db.prepare(`DELETE FROM results WHERE user_id = ?`).run(userId);
-  db.prepare(`DELETE FROM registrations WHERE user_id = ?`).run(userId);
-  db.prepare(`DELETE FROM sync_runs WHERE user_id = ?`).run(userId);
-  db.prepare(`DELETE FROM oauth_sessions WHERE user_id = ?`).run(userId);
-  db.prepare(`DELETE FROM users WHERE id = ?`).run(userId);
-
-  if (raceIds.length > 0) {
-    db.prepare(`DELETE FROM races WHERE id IN (${raceIds.map(() => "?").join(",")})`).run(...raceIds);
-  }
+export async function getUser(userId: number): Promise<{ display_name: string } | null> {
+  const rows = await sql`SELECT display_name FROM users WHERE id = ${userId}`;
+  return (rows[0] as { display_name: string } | undefined) ?? null;
 }
 
-function ensureColumn(tableName: string, columnName: string, columnDefinition: string) {
-  const columns = db
-    .prepare(`PRAGMA table_info(${tableName})`)
-    .all() as Array<{ name: string }>;
+export async function upsertUser(providerUserId: string, displayName: string): Promise<number> {
+  const rows = await sql`
+    INSERT INTO users (provider, provider_user_id, display_name, created_at, updated_at)
+    VALUES ('runsignup', ${providerUserId}, ${displayName}, now(), now())
+    ON CONFLICT (provider, provider_user_id) DO UPDATE
+      SET display_name = EXCLUDED.display_name,
+          updated_at   = now()
+    RETURNING id
+  `;
+  return (rows[0] as { id: number }).id;
+}
 
-  if (columns.some((column) => column.name === columnName)) {
-    return;
-  }
-
-  db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDefinition}`);
+export async function deleteUserData(userId: number): Promise<void> {
+  // ON DELETE CASCADE on all child tables means this single delete cleans everything up.
+  await sql`DELETE FROM users WHERE id = ${userId}`;
 }

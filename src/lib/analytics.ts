@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import { sql } from "@/lib/db";
 
 type MatchedResultRow = {
   runsignup_race_id: string;
@@ -21,31 +21,27 @@ type UpcomingRaceRow = {
   location_state: string | null;
 };
 
-export function getDashboardData(userId: number, selectedRaceId?: string) {
-  const matchedRows = db
-    .prepare(
-      `
-        SELECT
-          races.runsignup_race_id,
-          races.name AS race_name,
-          registrations.event_name,
-          registrations.event_start_time,
-          results.chip_time,
-          results.gun_time,
-          results.pace,
-          results.place,
-          results.result_set_name
-        FROM results
-        INNER JOIN races ON races.id = results.race_id
-        INNER JOIN registrations
-          ON registrations.race_id = races.id
-         AND CAST(registrations.runsignup_registration_id AS INTEGER) = results.registration_id
-         AND CAST(registrations.runsignup_event_id AS INTEGER) = results.event_id
-        WHERE results.user_id = ?
-        ORDER BY COALESCE(registrations.event_start_time, '') DESC
-      `,
-    )
-    .all(userId) as MatchedResultRow[];
+export async function getDashboardData(userId: number, selectedRaceId?: string) {
+  const matchedRows = (await sql`
+    SELECT
+      races.runsignup_race_id,
+      races.name AS race_name,
+      registrations.event_name,
+      registrations.event_start_time,
+      results.chip_time,
+      results.gun_time,
+      results.pace,
+      results.place,
+      results.result_set_name
+    FROM results
+    INNER JOIN races ON races.id = results.race_id
+    INNER JOIN registrations
+      ON registrations.race_id = races.id
+     AND NULLIF(registrations.runsignup_registration_id, '')::BIGINT = results.registration_id
+     AND NULLIF(registrations.runsignup_event_id, '')::BIGINT = results.event_id
+    WHERE results.user_id = ${userId}
+    ORDER BY COALESCE(registrations.event_start_time, '') DESC
+  `) as MatchedResultRow[];
 
   const normalizedResults = matchedRows
     .map((row) => {
@@ -73,7 +69,7 @@ export function getDashboardData(userId: number, selectedRaceId?: string) {
     .slice(0, 5);
 
   const prs = computePrs(normalizedResults);
-  const upcomingRaces = getUpcomingRaces(userId, now);
+  const upcomingRaces = await getUpcomingRaces(userId, now);
   const nextUpcomingRace = upcomingRaces[0] ?? null;
   const raceOptions = buildRaceOptions(normalizedResults);
   const effectiveSelectedRaceId = selectedRaceId ?? raceOptions[0]?.runsignupRaceId ?? null;
@@ -97,25 +93,21 @@ export function getDashboardData(userId: number, selectedRaceId?: string) {
   };
 }
 
-function getUpcomingRaces(userId: number, now: number) {
-  const rows = db
-    .prepare(
-      `
-        SELECT
-          races.runsignup_race_id,
-          races.name AS race_name,
-          registrations.event_name,
-          registrations.event_start_time,
-          races.location_city,
-          races.location_state
-        FROM registrations
-        INNER JOIN races ON races.id = registrations.race_id
-        WHERE registrations.user_id = ?
-          AND registrations.event_start_time IS NOT NULL
-        ORDER BY registrations.event_start_time ASC
-      `,
-    )
-    .all(userId) as UpcomingRaceRow[];
+async function getUpcomingRaces(userId: number, now: number) {
+  const rows = (await sql`
+    SELECT
+      races.runsignup_race_id,
+      races.name AS race_name,
+      registrations.event_name,
+      registrations.event_start_time,
+      races.location_city,
+      races.location_state
+    FROM registrations
+    INNER JOIN races ON races.id = registrations.race_id
+    WHERE registrations.user_id = ${userId}
+      AND registrations.event_start_time IS NOT NULL
+    ORDER BY registrations.event_start_time ASC
+  `) as UpcomingRaceRow[];
 
   return rows
     .map((row) => ({

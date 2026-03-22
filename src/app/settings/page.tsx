@@ -89,9 +89,9 @@ export default async function SettingsPage() {
 
   const cookieStore = await cookies();
   const sessionId = cookieStore.get(SESSION_COOKIE)?.value;
-  const session = getSession(sessionId);
+  const session = await getSession(sessionId);
   const tokens = session?.tokens ?? null;
-  const latestSync = getLatestSyncRun(1);
+  const latestSync = await getLatestSyncRun(session?.userId ?? 0);
 
   return (
     <div className={styles.page}>

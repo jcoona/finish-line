@@ -37,14 +37,14 @@ export async function GET(request: Request) {
   try {
     const tokens = await exchangeCodeForTokens({ code, codeVerifier });
     const runsignupUser = await fetchCurrentUser(tokens.access_token);
-    const userId = upsertUser(
+    const userId = await upsertUser(
       String(runsignupUser.user_id),
       `${runsignupUser.first_name} ${runsignupUser.last_name}`,
     );
-    const sessionId = createSession(tokens, userId);
+    const sessionId = await createSession(tokens, userId);
 
     const payload = await fetchRegisteredRaces(tokens.access_token);
-    const syncSummary = syncRegisteredRacesToDb(userId, payload);
+    const syncSummary = await syncRegisteredRacesToDb(userId, payload);
     const enrichmentSummary = await enrichUserRaces(userId);
     const params = new URLSearchParams({
       synced: "1",

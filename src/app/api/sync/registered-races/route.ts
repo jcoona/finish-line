@@ -13,7 +13,7 @@ import { syncRegisteredRacesToDb } from "@/lib/sync";
 export async function POST(request: Request) {
   const cookieStore = await cookies();
   const sessionId = cookieStore.get(SESSION_COOKIE)?.value;
-  const session = getSession(sessionId);
+  const session = await getSession(sessionId);
 
   if (!session) {
     return NextResponse.redirect(new URL("/?sync_error=not_connected", request.url));
@@ -26,11 +26,11 @@ export async function POST(request: Request) {
         : session.tokens;
 
     if (usableTokens !== session.tokens && sessionId) {
-      updateSessionTokens(sessionId, usableTokens);
+      await updateSessionTokens(sessionId, usableTokens);
     }
 
     const payload = await fetchRegisteredRaces(usableTokens.access_token);
-    const syncSummary = syncRegisteredRacesToDb(session.userId, payload);
+    const syncSummary = await syncRegisteredRacesToDb(session.userId, payload);
     const enrichmentSummary = await enrichUserRaces(session.userId);
     const params = new URLSearchParams({
       synced: "1",

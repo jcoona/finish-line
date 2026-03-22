@@ -7,7 +7,7 @@ import { enrichUserRaces } from "@/lib/enrichment";
 export async function POST(request: Request) {
   const cookieStore = await cookies();
   const sessionId = cookieStore.get(SESSION_COOKIE)?.value;
-  const session = getSession(sessionId);
+  const session = await getSession(sessionId);
 
   if (!session) {
     return NextResponse.redirect(new URL("/?sync_error=not_connected", request.url));
