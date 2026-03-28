@@ -1,14 +1,10 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 
 function getEncryptionKey() {
-  const configuredKey = process.env.FINISH_LINE_ENCRYPTION_KEY?.trim();
-  const fallbackKey = process.env.RUNSIGNUP_CLIENT_SECRET_B64?.trim();
-  const source = configuredKey || fallbackKey;
+  const source = process.env.FINISH_LINE_ENCRYPTION_KEY?.trim();
 
   if (!source) {
-    throw new Error(
-      "Missing encryption key. Set FINISH_LINE_ENCRYPTION_KEY or RUNSIGNUP_CLIENT_SECRET_B64.",
-    );
+    throw new Error("Missing required environment variable: FINISH_LINE_ENCRYPTION_KEY");
   }
 
   return createHash("sha256").update(source).digest();

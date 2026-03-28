@@ -20,6 +20,18 @@ function formatMaybeJson(value: unknown) {
   return JSON.stringify(value, null, 2);
 }
 
+const ENV_VAR_HINTS: Record<string, string> = {
+  DATABASE_URL: "PostgreSQL connection string",
+  RUNSIGNUP_CLIENT_ID: "RunSignup OAuth client ID — register at runsignup.com/developers",
+  RUNSIGNUP_CLIENT_SECRET_B64: "RunSignup OAuth client secret (base64-encoded)",
+  RUNSIGNUP_REDIRECT_URI: "URL RunSignup redirects back to after login (must match your registered app)",
+  FINISH_LINE_ENCRYPTION_KEY: "Random secret key used to encrypt OAuth tokens stored in cookies",
+};
+
+function formatMissingEnvVars(vars: string[]) {
+  return vars.map((v) => `# ${ENV_VAR_HINTS[v] ?? v}\n${v}=`).join("\n\n");
+}
+
 export default async function Home({ searchParams }: HomeProps) {
   const params = await searchParams;
 
@@ -175,10 +187,35 @@ export default async function Home({ searchParams }: HomeProps) {
     );
   }
 
+  const missingEnvVars = getMissingEnvVars();
+  if (missingEnvVars.length > 0) {
+    return (
+      <div className={styles.page}>
+        <main className={styles.main}>
+          <section className={styles.hero}>
+            <p className={styles.kicker}>Finish Line</p>
+            <h1>Your Race History, Organized In One Place</h1>
+            <p className={styles.lede}>
+              PRs, recent finishes, upcoming races, and your history at favorite events,
+              all pulled together from RunSignup.
+            </p>
+          </section>
+          <section className={styles.alert}>
+            <h2>Setup needed</h2>
+            <p>
+              Add the missing environment variables in <code>.env.local</code> before testing
+              the RunSignup connection.
+            </p>
+            <pre>{formatMissingEnvVars(missingEnvVars)}</pre>
+          </section>
+        </main>
+      </div>
+    );
+  }
+
   const cookieStore = await cookies();
   const session = await getSession(cookieStore.get(SESSION_COOKIE)?.value);
   const user = session ? await getUser(session.userId) : null;
-  const missingEnvVars = getMissingEnvVars();
   const connected = params.connected === "1";
   const synced = params.synced === "1";
   const oauthError =
@@ -222,17 +259,6 @@ export default async function Home({ searchParams }: HomeProps) {
             </Link>
           </div>
         </section>
-
-        {missingEnvVars.length > 0 ? (
-          <section className={styles.alert}>
-            <h2>Setup needed</h2>
-            <p>
-              Add the missing environment variables in `.env.local` before testing
-              the RunSignup connection.
-            </p>
-            <pre>{formatMaybeJson(missingEnvVars)}</pre>
-          </section>
-        ) : null}
 
         {connected ? (
           <section className={styles.success}>
