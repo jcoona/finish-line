@@ -23,9 +23,7 @@ function getSql(): SqlClient {
     ssl: connectionString.includes("sslmode=require") ? { rejectUnauthorized: false } : false,
   });
 
-  if (process.env.NODE_ENV !== "production") {
-    globalForPg._sql = client;
-  }
+  globalForPg._sql = client;
 
   return client;
 }
