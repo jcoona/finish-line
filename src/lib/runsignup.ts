@@ -42,22 +42,31 @@ export function generateCodeChallenge(verifier: string) {
 }
 
 export function getRequiredEnv() {
-  return {
-    clientId: process.env.RUNSIGNUP_CLIENT_ID ?? "",
-    clientSecretB64: process.env.RUNSIGNUP_CLIENT_SECRET_B64 ?? "",
-    redirectUri: process.env.RUNSIGNUP_REDIRECT_URI ?? "",
-  };
+  const clientId = process.env.RUNSIGNUP_CLIENT_ID?.trim();
+  const clientSecretB64 = process.env.RUNSIGNUP_CLIENT_SECRET_B64?.trim();
+  const redirectUri = process.env.RUNSIGNUP_REDIRECT_URI?.trim();
+
+  const missing = [
+    !clientId && "RUNSIGNUP_CLIENT_ID",
+    !clientSecretB64 && "RUNSIGNUP_CLIENT_SECRET_B64",
+    !redirectUri && "RUNSIGNUP_REDIRECT_URI",
+  ].filter(Boolean);
+
+  if (missing.length > 0) {
+    throw new Error(`Missing required environment variables: ${missing.join(", ")}`);
+  }
+
+  return { clientId: clientId!, clientSecretB64: clientSecretB64!, redirectUri: redirectUri! };
 }
 
 export function getMissingEnvVars() {
-  const env = getRequiredEnv();
-  return Object.entries({
-    RUNSIGNUP_CLIENT_ID: env.clientId,
-    RUNSIGNUP_CLIENT_SECRET_B64: env.clientSecretB64,
-    RUNSIGNUP_REDIRECT_URI: env.redirectUri,
-  })
-    .filter(([, value]) => !value)
-    .map(([key]) => key);
+  return [
+    "RUNSIGNUP_CLIENT_ID",
+    "RUNSIGNUP_CLIENT_SECRET_B64",
+    "RUNSIGNUP_REDIRECT_URI",
+    "FINISH_LINE_ENCRYPTION_KEY",
+    "DATABASE_URL",
+  ].filter((key) => !process.env[key]?.trim());
 }
 
 export function buildAuthorizationUrl(state: string, codeChallenge: string) {
