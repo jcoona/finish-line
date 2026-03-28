@@ -203,8 +203,8 @@ export default async function Home({ searchParams }: HomeProps) {
           <section className={styles.alert}>
             <h2>Setup needed</h2>
             <p>
-              Add the missing environment variables in <code>.env.local</code> before testing
-              the RunSignup connection.
+              This app needs a few API credentials to connect to RunSignup. Add the variables
+              below to your <code>.env.local</code> file, then restart the dev server.
             </p>
             <pre>{formatMissingEnvVars(missingEnvVars)}</pre>
           </section>
