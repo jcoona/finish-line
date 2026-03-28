@@ -12,16 +12,16 @@ RunSignup implements the **OAuth2 Authorization Code flow with PKCE** support.
 
 ## Scopes
 
-| Scope | Description |
-|---|---|
-| `rsu_api_read` | RunSignup API Read Access |
-| `rsu_api_write` | RunSignup API Write Access |
-| `mcp.access` | RunSignup MCP Access |
-| `rsu_admin.super_user` | Company Admin: Super User |
-| `rsu_admin.developer` | Company Admin: Developer |
-| `rsu_admin.finance` | Company Admin: Finance |
+| Scope                            | Description                             |
+|----------------------------------|-----------------------------------------|
+| `rsu_api_read`                   | RunSignup API Read Access               |
+| `rsu_api_write`                  | RunSignup API Write Access              |
+| `mcp.access`                     | RunSignup MCP Access                    |
+| `rsu_admin.super_user`           | Company Admin: Super User               |
+| `rsu_admin.developer`            | Company Admin: Developer                |
+| `rsu_admin.finance`              | Company Admin: Finance                  |
 | `rsu_admin.onboarding_retention` | Company Admin: Onboarding and Retention |
-| `rsu_admin.employee` | Company Admin: Employee |
+| `rsu_admin.employee`             | Company Admin: Employee                 |
 
 Multiple scopes are space-separated (e.g., `rsu_api_read rsu_api_write`).
 
@@ -29,11 +29,11 @@ Multiple scopes are space-separated (e.g., `rsu_api_read rsu_api_write`).
 
 ## Token Lifetimes
 
-| Token | Lifetime |
-|---|---|
-| Authorization Code | 5 minutes |
-| Access Token | ~1 month (2,592,000 seconds) |
-| Refresh Token | 20 years |
+| Token              | Lifetime                     |
+|--------------------|------------------------------|
+| Authorization Code | 5 minutes                    |
+| Access Token       | ~1 month (2,592,000 seconds) |
+| Refresh Token      | 20 years                     |
 
 ---
 
@@ -57,15 +57,15 @@ Multiple scopes are space-separated (e.g., `rsu_api_read rsu_api_write`).
 GET https://api.runsignup.com/Profile/OAuth2/RequestGrant
 ```
 
-| Parameter | Required | Description |
-|---|---|---|
-| `response_type` | Yes | Must be `"code"` |
-| `client_id` | Yes | OAuth2 client identifier |
-| `redirect_uri` | Yes | Callback URI; must match registered |
-| `scope` | No | Space-separated scopes |
-| `state` | No | CSRF protection (recommended) |
-| `code_challenge` | No | PKCE challenge; pattern: `^[A-Za-z0-9\-._~]{43,128}$` |
-| `code_challenge_method` | No | `"plain"` or `"S256"` (S256 recommended); defaults to `"plain"` |
+| Parameter               | Required | Description                                                     |
+|-------------------------|----------|-----------------------------------------------------------------|
+| `response_type`         | Yes      | Must be `"code"`                                                |
+| `client_id`             | Yes      | OAuth2 client identifier                                        |
+| `redirect_uri`          | Yes      | Callback URI; must match registered                             |
+| `scope`                 | No       | Space-separated scopes                                          |
+| `state`                 | No       | CSRF protection (recommended)                                   |
+| `code_challenge`        | No       | PKCE challenge; pattern: `^[A-Za-z0-9\-._~]{43,128}$`           |
+| `code_challenge_method` | No       | `"plain"` or `"S256"` (S256 recommended); defaults to `"plain"` |
 
 **Response:** `302` redirect to callback with `code` param, or `400` on bad request.
 
@@ -78,14 +78,14 @@ POST https://api.runsignup.com/rest/v2/auth/auth-code-redemption.json
 Content-Type: application/x-www-form-urlencoded
 ```
 
-| Parameter | Required | Description |
-|---|---|---|
-| `grant_type` | Yes | Must be `"authorization_code"` |
-| `client_id` | Yes | OAuth2 client identifier |
-| `client_secret` | Yes | OAuth2 client secret (base64 encoded) |
-| `code` | Yes | Authorization code from step 1 |
-| `redirect_uri` | Yes | Same URI used in auth request |
-| `code_verifier` | No | PKCE verifier (required if `code_challenge` was used) |
+| Parameter       | Required | Description                                           |
+|-----------------|----------|-------------------------------------------------------|
+| `grant_type`    | Yes      | Must be `"authorization_code"`                        |
+| `client_id`     | Yes      | OAuth2 client identifier                              |
+| `client_secret` | Yes      | OAuth2 client secret (base64 encoded)                 |
+| `code`          | Yes      | Authorization code from step 1                        |
+| `redirect_uri`  | Yes      | Same URI used in auth request                         |
+| `code_verifier` | No       | PKCE verifier (required if `code_challenge` was used) |
 
 **Responses:** `200` → `TokenResponse`, `400`/`401` → `OAuth2Error`
 
@@ -98,13 +98,13 @@ POST https://api.runsignup.com/rest/v2/auth/refresh-token.json
 Content-Type: application/x-www-form-urlencoded
 ```
 
-| Parameter | Required | Description |
-|---|---|---|
-| `grant_type` | Yes | Must be `"refresh_token"` |
-| `refresh_token` | Yes | Refresh token from prior exchange |
-| `client_id` | Yes | OAuth2 client identifier |
-| `client_secret` | Yes | OAuth2 client secret (base64 encoded) |
-| `scope` | No | Defaults to original scope |
+| Parameter       | Required | Description                           |
+|-----------------|----------|---------------------------------------|
+| `grant_type`    | Yes      | Must be `"refresh_token"`             |
+| `refresh_token` | Yes      | Refresh token from prior exchange     |
+| `client_id`     | Yes      | OAuth2 client identifier              |
+| `client_secret` | Yes      | OAuth2 client secret (base64 encoded) |
+| `scope`         | No       | Defaults to original scope            |
 
 **Responses:** `200` → `TokenResponse`, `400`/`401` → `OAuth2Error`
 
