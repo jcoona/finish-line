@@ -21,7 +21,9 @@ Finish Line uses RunSignup OAuth to access the logged-in user's account data. Af
 4. attempts to match official public results for each saved registration
 5. builds dashboard views from the PostgreSQL database
 
-The app is currently designed for local use and development. Synced data is stored in a PostgreSQL database and is not committed to git.
+The app is publicly available at **https://finish-line-amber.vercel.app/**
+
+Synced data is stored in a PostgreSQL database and is not committed to git.
 
 No synced runner data is shared with external services beyond the direct calls Finish Line makes to RunSignup in order to authenticate and fetch account data.
 
