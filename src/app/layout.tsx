@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Finish Line OAuth Spike",
-  description: "RunSignup OAuth viability test for Finish Line",
+  title: "Finish Line",
+  description: "Track your RunSignup race results with Finish Line",
 };
 
 export default function RootLayout({
