@@ -50,11 +50,6 @@ function TodaysRaceSection({ race }: { race: TodaysRace }) {
       <div className={styles.panelHeader}>
         <div>
           <h2>Today&apos;s Race</h2>
-          {!raceStarted ? (
-            <p>Get ready for today!</p>
-          ) : hasResult ? (
-            <p>You finished! Here are your results.</p>
-          ) : null}
         </div>
       </div>
       <article className={styles.todaysRaceCard}>
