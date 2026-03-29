@@ -8,7 +8,8 @@ import { getMissingEnvVars } from "@/lib/runsignup";
 import { getDashboardData } from "@/lib/analytics";
 import { SESSION_COOKIE, getSession } from "@/lib/session";
 import { getUser } from "@/lib/db";
-import { DEMO_DASHBOARD_DATA, DEMO_USER_NAME } from "@/lib/demo-data";
+import { getDemoDashboardData, DEMO_USER_NAME } from "@/lib/demo-data";
+import type { TodaysRace } from "@/lib/analytics";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
@@ -32,11 +33,63 @@ function formatMissingEnvVars(vars: string[]) {
   return vars.map((v) => `# ${ENV_VAR_HINTS[v] ?? v}\n${v}=`).join("\n\n");
 }
 
+function TodaysRaceSection({ race }: { race: TodaysRace }) {
+  const now = Date.now();
+  const startTimestamp = race.event_start_time ? new Date(race.event_start_time).getTime() : 0;
+  const hasResult = !!(race.chip_time ?? race.gun_time);
+  const raceStarted = startTimestamp > 0 && now >= startTimestamp;
+
+  const raceName = race.event_name ?? race.race_name;
+  const location = [race.location_city, race.location_state].filter(Boolean).join(", ");
+  const startTime = race.event_start_time
+    ? new Date(race.event_start_time).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })
+    : "Time pending";
+
+  return (
+    <section className={styles.panel}>
+      <div className={styles.panelHeader}>
+        <div>
+          <h2>Today&apos;s Race</h2>
+          <p>
+            {!raceStarted
+              ? "Get ready for today!"
+              : hasResult
+                ? "You finished! Here are your results."
+                : "Results will come soon!"}
+          </p>
+        </div>
+      </div>
+      <article className={styles.todaysRaceCard}>
+        <p className={styles.highlightLabel}>Race day</p>
+        <h3>{raceName}</h3>
+        <span>{startTime}</span>
+        {location ? <small>{location}</small> : null}
+        {hasResult ? (
+          <div className={styles.todaysRaceResult}>
+            <strong>{race.chip_time ?? race.gun_time}</strong>
+            <small>
+              {race.place ? `Place ${race.place}` : ""}
+              {race.place && race.pace ? " • " : ""}
+              {race.pace ? `Pace ${race.pace}` : ""}
+            </small>
+          </div>
+        ) : (
+          <p className={styles.todaysRaceStatus}>
+            {!raceStarted
+              ? `Race starts at ${new Date(race.event_start_time!).toLocaleTimeString([], { timeStyle: "short" })}. Lace up and get out there!`
+              : "The race has started — results will be posted once they're available."}
+          </p>
+        )}
+      </article>
+    </section>
+  );
+}
+
 export default async function Home({ searchParams }: HomeProps) {
   const params = await searchParams;
 
   if (IS_DEMO) {
-    const dashboard = DEMO_DASHBOARD_DATA;
+    const dashboard = getDemoDashboardData();
     return (
       <div className={styles.page}>
         <main className={styles.main}>
@@ -53,6 +106,8 @@ export default async function Home({ searchParams }: HomeProps) {
               </Link>
             </div>
           </section>
+
+          {dashboard.todaysRace ? <TodaysRaceSection race={dashboard.todaysRace} /> : null}
 
           <section className={styles.panel}>
             <div className={styles.panelHeader}>
@@ -282,6 +337,8 @@ export default async function Home({ searchParams }: HomeProps) {
             <pre>{syncError}</pre>
           </section>
         ) : null}
+
+        {dashboard.todaysRace ? <TodaysRaceSection race={dashboard.todaysRace} /> : null}
 
         <section className={styles.panel}>
           <div className={styles.panelHeader}>
