@@ -21,6 +21,21 @@ type UpcomingRaceRow = {
   location_state: string | null;
 };
 
+type TodaysRaceRow = {
+  runsignup_race_id: string;
+  race_name: string;
+  event_name: string | null;
+  event_start_time: string | null;
+  location_city: string | null;
+  location_state: string | null;
+  chip_time: string | null;
+  gun_time: string | null;
+  pace: string | null;
+  place: string | null;
+};
+
+export type TodaysRace = TodaysRaceRow;
+
 export async function getDashboardData(userId: number, selectedRaceId?: string) {
   const matchedRows = (await sql`
     SELECT
@@ -61,10 +76,20 @@ export async function getDashboardData(userId: number, selectedRaceId?: string) 
 
   const now = Date.now();
   const currentYear = new Date().getFullYear();
+  const todaysRace = await getTodaysRace(userId);
   const recentResults = normalizedResults
     .filter((row) => {
       const year = row.event_start_time ? new Date(row.event_start_time).getFullYear() : 0;
-      return year === currentYear || year === currentYear - 1;
+      if (year !== currentYear && year !== currentYear - 1) return false;
+      // Exclude today's race — it has its own dedicated section until tomorrow
+      if (
+        todaysRace &&
+        row.runsignup_race_id === todaysRace.runsignup_race_id &&
+        row.event_start_time === todaysRace.event_start_time
+      ) {
+        return false;
+      }
+      return true;
     })
     .slice(0, 5);
 
@@ -84,6 +109,7 @@ export async function getDashboardData(userId: number, selectedRaceId?: string) 
   return {
     prs,
     recentResults,
+    todaysRace,
     upcomingRaces: upcomingRaces.slice(0, 4),
     nextUpcomingRace,
     raceOptions,
@@ -91,6 +117,37 @@ export async function getDashboardData(userId: number, selectedRaceId?: string) 
     selectedRaceHistory,
     selectedRaceLabel: selectedRaceOption?.label ?? null,
   };
+}
+
+async function getTodaysRace(userId: number): Promise<TodaysRace | null> {
+  const today = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+
+  const rows = (await sql`
+    SELECT
+      races.runsignup_race_id,
+      races.name AS race_name,
+      registrations.event_name,
+      registrations.event_start_time,
+      races.location_city,
+      races.location_state,
+      results.chip_time,
+      results.gun_time,
+      results.pace,
+      results.place
+    FROM registrations
+    INNER JOIN races ON races.id = registrations.race_id
+    LEFT JOIN results
+      ON results.race_id = races.id
+      AND results.user_id = ${userId}
+      AND NULLIF(registrations.runsignup_registration_id, '')::BIGINT = results.registration_id
+      AND NULLIF(registrations.runsignup_event_id, '')::BIGINT = results.event_id
+    WHERE registrations.user_id = ${userId}
+      AND registrations.event_start_time IS NOT NULL
+      AND LEFT(registrations.event_start_time, 10) = ${today}
+    LIMIT 1
+  `) as TodaysRaceRow[];
+
+  return rows[0] ?? null;
 }
 
 async function getUpcomingRaces(userId: number, now: number) {

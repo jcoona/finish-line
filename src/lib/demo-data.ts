@@ -6,7 +6,7 @@
 
 export const DEMO_USER_NAME = "Alex";
 
-export const DEMO_DASHBOARD_DATA = {
+const DEMO_BASE_DATA = {
   prs: [
     {
       distanceBucket: "5K",
@@ -187,3 +187,27 @@ export const DEMO_DASHBOARD_DATA = {
 
   selectedRaceLabel: "Hoboken 5K Classic",
 };
+
+export function getDemoDashboardData() {
+  const today = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+
+  // Demo: show a race that started this morning so we can showcase the section.
+  // chip_time is null so it sits in the "Results will come soon!" state.
+  const todaysRace = {
+    runsignup_race_id: "demo-today",
+    race_name: "Hoboken Spring 5K",
+    event_name: "5K Run",
+    event_start_time: `${today}T08:00:00`,
+    location_city: "Hoboken",
+    location_state: "NJ",
+    chip_time: null,
+    gun_time: null,
+    pace: null,
+    place: null,
+  };
+
+  return { ...DEMO_BASE_DATA, todaysRace };
+}
+
+// Keep the static export for any consumers that don't need todaysRace
+export const DEMO_DASHBOARD_DATA = { ...DEMO_BASE_DATA, todaysRace: null };
