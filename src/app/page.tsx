@@ -77,7 +77,7 @@ function TodaysRaceSection({ race }: { race: TodaysRace }) {
           <p className={styles.todaysRaceStatus}>
             {!raceStarted
               ? `Race starts at ${new Date(race.event_start_time!).toLocaleTimeString([], { timeStyle: "short" })}. Lace up and get out there!`
-              : "The race has started — results will be posted once they're available."}
+              : "The race has finished — results will be posted once they're available."}
           </p>
         )}
       </article>
