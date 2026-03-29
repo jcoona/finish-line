@@ -120,8 +120,6 @@ export async function getDashboardData(userId: number, selectedRaceId?: string) 
 }
 
 async function getTodaysRace(userId: number): Promise<TodaysRace | null> {
-  const today = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
-
   const rows = (await sql`
     SELECT
       races.runsignup_race_id,
@@ -143,7 +141,7 @@ async function getTodaysRace(userId: number): Promise<TodaysRace | null> {
       AND NULLIF(registrations.runsignup_event_id, '')::BIGINT = results.event_id
     WHERE registrations.user_id = ${userId}
       AND registrations.event_start_time IS NOT NULL
-      AND LEFT(registrations.event_start_time, 10) = ${today}
+      AND TO_TIMESTAMP(registrations.event_start_time, 'FMMM/FMDD/YYYY HH24:MI')::date = CURRENT_DATE
     LIMIT 1
   `) as TodaysRaceRow[];
 
