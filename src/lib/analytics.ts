@@ -82,6 +82,7 @@ export async function getDashboardData(userId: number, selectedRaceId?: string) 
   const now = Date.now();
   const currentYear = new Date().getFullYear();
   const todaysRace = await getTodaysRace(userId);
+  const seenRaceIds = new Set<string>();
   const recentResults = normalizedResults
     .filter((row) => {
       const year = row.event_start_time ? new Date(row.event_start_time).getFullYear() : 0;
@@ -94,6 +95,9 @@ export async function getDashboardData(userId: number, selectedRaceId?: string) 
       ) {
         return false;
       }
+      // Only show the most recent event per race ID
+      if (seenRaceIds.has(row.runsignup_race_id)) return false;
+      seenRaceIds.add(row.runsignup_race_id);
       return true;
     })
     .slice(0, 5);
