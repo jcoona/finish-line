@@ -106,7 +106,7 @@ export async function getDashboardData(userId: number, selectedRaceId?: string) 
   const selectedRaceHistory = effectiveSelectedRaceId
     ? normalizedResults
         .filter((row) => row.runsignup_race_id === effectiveSelectedRaceId)
-        .sort((a, b) => a.eventTimestamp - b.eventTimestamp)
+        .sort((a, b) => b.eventTimestamp - a.eventTimestamp)
     : [];
   const selectedRaceOption =
     raceOptions.find((option) => option.runsignupRaceId === effectiveSelectedRaceId) ?? null;
