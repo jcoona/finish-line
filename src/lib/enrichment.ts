@@ -73,6 +73,7 @@ export async function enrichUserRaces(userId: number): Promise<EnrichmentSummary
         SET
           event_name       = ${pickString(eventObject.name) ?? pickString(registration.runsignup_event_id)},
           event_start_time = ${pickString(eventObject.start_time)},
+          event_distance   = ${pickString(eventObject.distance)},
           raw_payload      = ${sql.json(JSON.parse(JSON.stringify(eventObject)))},
           synced_at        = now()
         WHERE id = ${registration.registration_row_id}
