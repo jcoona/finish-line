@@ -5,6 +5,7 @@ type MatchedResultRow = {
   race_name: string;
   event_name: string | null;
   event_start_time: string | null;
+  event_distance: string | null;
   chip_time: string | null;
   gun_time: string | null;
   pace: string | null;
@@ -43,6 +44,7 @@ export async function getDashboardData(userId: number, selectedRaceId?: string) 
       races.name AS race_name,
       registrations.event_name,
       registrations.event_start_time,
+      registrations.event_distance,
       results.chip_time,
       results.gun_time,
       results.pace,
@@ -61,7 +63,10 @@ export async function getDashboardData(userId: number, selectedRaceId?: string) 
   const normalizedResults = matchedRows
     .map((row) => {
       const seconds = parseTimeToSeconds(row.chip_time ?? row.gun_time);
-      const distanceBucket = inferDistanceBucket(row.event_name ?? row.race_name);
+      const distanceBucket =
+        row.event_distance
+          ? normalizeDistanceBucket(row.event_distance)
+          : inferDistanceBucket(row.event_name ?? row.race_name);
       const eventTimestamp = parseEventTimestamp(row.event_start_time);
 
       return {
@@ -244,6 +249,19 @@ function computePrs(
       place: row.place,
     }))
     .sort((a, b) => a.distanceBucket.localeCompare(b.distanceBucket));
+}
+
+function normalizeDistanceBucket(distance: string) {
+  const normalized = distance.trim().toLowerCase();
+
+  if (normalized === "5k") return "5K";
+  if (normalized === "10k") return "10K";
+  if (normalized === "half marathon" || normalized === "half") return "Half Marathon";
+  if (normalized === "marathon") return "Marathon";
+  if (normalized === "5 miles" || normalized === "5 mile" || normalized === "5-mile") return "5 Mile";
+
+  // Return the raw value as-is for unknown distances (e.g. "10 Miles", "15K")
+  return distance.trim();
 }
 
 function inferDistanceBucket(name: string) {

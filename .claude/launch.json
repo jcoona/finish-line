@@ -3,15 +3,15 @@
   "configurations": [
     {
       "name": "finish-line",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeExecutable": "/bin/bash",
+      "runtimeArgs": ["-c", "PATH=/opt/homebrew/bin:$PATH npm run dev"],
       "port": 3000,
       "autoPort": false
     },
     {
       "name": "finish-line (demo)",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev:demo"],
+      "runtimeExecutable": "/bin/bash",
+      "runtimeArgs": ["-c", "PATH=/opt/homebrew/bin:$PATH npm run dev:demo"],
       "port": 3000,
       "autoPort": false
     }
