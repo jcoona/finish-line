@@ -202,7 +202,7 @@ export default async function Home({ searchParams }: HomeProps) {
             <div className={styles.panelHeader}>
               <div>
                 <h2>Race history</h2>
-                <p>Select a race to see your matched results in chronological order.</p>
+                <p>Select a race to see your matched results, most recent first.</p>
               </div>
             </div>
             <RaceHistorySelector
@@ -456,7 +456,7 @@ export default async function Home({ searchParams }: HomeProps) {
           <div className={styles.panelHeader}>
             <div>
               <h2>Race history</h2>
-              <p>Select a race to see your matched results in chronological order.</p>
+              <p>Select a race to see your matched results, most recent first.</p>
             </div>
           </div>
           {dashboard.raceOptions.length > 0 ? (
