@@ -178,7 +178,8 @@ async function getUpcomingRaces(userId: number, now: number) {
       ...row,
       eventTimestamp: parseEventTimestamp(row.event_start_time),
     }))
-    .filter((row) => row.eventTimestamp > now);
+    .filter((row) => row.eventTimestamp > now)
+    .sort((a, b) => a.eventTimestamp - b.eventTimestamp);
 }
 
 function buildRaceOptions(
